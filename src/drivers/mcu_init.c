@@ -7,7 +7,7 @@
 #include "mcu_init.h"
 #include "stm32h7xx_hal.h"
 
-static void inline  SystemClock_Config(void)
+static void inline SystemClock_Config(void)
 {
     RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
     RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
@@ -58,21 +58,8 @@ static void inline  SystemClock_Config(void)
 
 void mcu_init()
 {
-
-	  HAL_Init();
-	  SystemClock_Config(); // configure the HSE HSI clocks
-	  __HAL_RCC_SYSCFG_CLK_ENABLE(); // enable system Rcc clock
-	  __HAL_RCC_GPIOC_CLK_ENABLE(); // enable the pin clock
-	  __HAL_RCC_GPIOA_CLK_ENABLE() ;
-	  __HAL_RCC_GPIOB_CLK_ENABLE() ;
-	  __HAL_RCC_GPIOD_CLK_ENABLE() ;
-	  __HAL_RCC_GPIOE_CLK_ENABLE() ;
-	  __HAL_RCC_GPIOF_CLK_ENABLE() ;
-	  __HAL_RCC_GPIOG_CLK_ENABLE() ;
-	  __HAL_RCC_GPIOH_CLK_ENABLE() ;
-
-
+    // initialize HAL
+    HAL_Init();
+    SystemClock_Config(); // configure the HSE HSI clocks
+    __HAL_RCC_SYSCFG_CLK_ENABLE(); // enable system Rcc clock
 }
-
-
-

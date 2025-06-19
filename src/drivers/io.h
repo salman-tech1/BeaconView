@@ -17,6 +17,7 @@
 
 #define MAXPORTBITS 4 // 2^4 = 16 // 9 Ports
 #define MAXPINBITS 4 // 2^4 = 16 //15 pins
+#define IO_UNUSED 0
 
 // TODO : Improve multiple HW targets handling
 #define STM32H7BOARD
@@ -358,7 +359,6 @@ typedef enum {
 
 struct io_config
 {
-
     io_mode_e Mode;
     io_speed_e speed;
     io_select_e Alternate;
@@ -369,5 +369,6 @@ struct io_config
 void io_configure(io_e io, const struct io_config *config);
 void io_set_out(io_e io, io_out_e out);
 io_in_e io_get_input(io_e io);
+void io_init(void) ;
 
 #endif /* SRC_DRIVERS_IO_H_ */
