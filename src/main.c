@@ -16,17 +16,34 @@
  *
  */
 #include "stm32h7xx_hal.h"
+#include "common/assert_handler.h"
 #include "drivers/mcu_init.h"
 #include "drivers/io.h"
+#include "drivers/led.h"
 
+void test_led_driver()
+{
 
+	   while (1) {
+	    	int n ;
+	    	led_set(LED_ , LED_STATE_ON ) ;
+	    	for(n=0 ; n<1000000 ; ++n) ;
+	    	led_set(LED_ , LED_STATE_OFF) ;
+	    	for(n=0 ; n<1000000 ; ++n) ;
+	    }
+}
 
 
 int main(void)
 {
 
     mcu_init();
-    io_init() ;
 
-    while (1) { }
+   // io_init() ;
+    led_init() ;
+ //   test_led_driver() ;
+
+    while (1) {
+
+    }
 }
