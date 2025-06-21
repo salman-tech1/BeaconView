@@ -5,6 +5,7 @@
  *      Author: salman
  */
 #include "mcu_init.h"
+#include "io.h"
 #include "stm32h7xx_hal.h"
 
 static void inline SystemClock_Config(void)
@@ -62,4 +63,6 @@ void mcu_init()
     HAL_Init();
     SystemClock_Config(); // configure the HSE HSI clocks
     __HAL_RCC_SYSCFG_CLK_ENABLE(); // enable system Rcc clock
+
+    io_init();
 }

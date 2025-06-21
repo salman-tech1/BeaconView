@@ -8,12 +8,16 @@
 #include "stm32h7xx_hal.h"
 #include "drivers/io.h"
 #include "common/defines.h"
+#include <assert.h>
 
 // This define is a helper macro to encode port and pin bits into a variable
 
 // it's a helper headers provide variables/defines for accessing registers
 static volatile GPIO_TypeDef *const ports[MAXPORTS] = { GPIOA, GPIOB, GPIOC, GPIOD, GPIOE,
                                                         GPIOF, GPIOG, GPIOH, GPIOI };
+
+static io_callback io_callbacks[IO_MAX];
+
 
 // TODO : Encode tempelate
 static const uint8_t io_pin_map[MAX_PIN] = {
@@ -129,6 +133,10 @@ static const uint8_t io_pin_map[MAX_PIN] = {
     [AUX_PIN_3] = ENCODE_IO(PORTE, IO_6),
 };
 
+
+
+static_assert(sizeof(io_e) == 1, "Unexpected size of enum");
+
 // return pointer to PORTS : GPIOA
 static inline GPIO_TypeDef *io_port(io_e io)
 {
@@ -182,9 +190,6 @@ static uint32_t io_mode_to_hal(io_mode_e mode)
     }
 }
 
-
-
-
 void io_configure(io_e io, const struct io_config *config)
 {
     GPIO_InitTypeDef pincnfg = { 0 };
@@ -205,7 +210,6 @@ void io_configure(io_e io, const struct io_config *config)
     pincnfg.Speed = speed_l;
     pincnfg.Alternate = Alt_l;
     HAL_GPIO_Init(port, &pincnfg);
-
 }
 
 io_in_e io_get_input(io_e io)
@@ -350,57 +354,170 @@ void io_init(void)
     __HAL_RCC_GPIOG_CLK_ENABLE();
     __HAL_RCC_GPIOH_CLK_ENABLE();
     // TODO : intializing all pins group each Peripheral in a seperated BLocks
-    for (io_e io = LTDC_VSYNC; io < MAX_PIN ; ++io) {
+    for (io_e io = LTDC_VSYNC; io < MAX_PIN; ++io) {
         if (io == RCC_OSC32_IN || io == RCC_OSC32_OUT || io == RCC_OSC_IN || io == RCC_OSC_OUT)
             continue;
-        for(int i=0; i<100; ++i) ; // delay
+        for (int i = 0; i < 100; ++i)
+            ; // delay
         io_configure(io, &initial_configs[io]);
     }
 }
 
-
-void io_get_current_config(io_e io ,  struct io_config *current_config)
+void io_get_current_config(io_e io, struct io_config *current_config)
 {
-	  GPIO_TypeDef *port = io_port(io);
+    GPIO_TypeDef *port = io_port(io);
 
-	  volatile uint8_t enc = io_pin_map[io];
-	  volatile uint8_t pin_idx = ((enc) & (0xf));
+    volatile uint8_t enc = io_pin_map[io];
+    volatile uint8_t pin_idx = ((enc) & (0xf));
 
-	  // extract the config from PORT registers
-	  volatile uint32_t moder =  ((port->MODER & (0x3 << (pin_idx * 2u )) ) >> (pin_idx * 2u ))  ;
-	  volatile uint32_t otype = ((port->OTYPER &  (0x1 << pin_idx ) ) >> pin_idx)  ;
+    // extract the config from PORT registers
+    volatile uint32_t moder = ((port->MODER & (0x3 << (pin_idx * 2u))) >> (pin_idx * 2u));
+    volatile uint32_t otype = ((port->OTYPER & (0x1 << pin_idx)) >> pin_idx);
 
+    io_mode_e mode;
+    switch (moder) {
+    case 0x0:
+        mode = IO_MODE_INPUT;
+        break;
+    case 0x1:
+        mode = (otype == 0) ? IO_MODE_OUTPUT_PP : IO_MODE_OUTPUT_OD;
+        break;
+    case 0x2:
+        mode = (otype == 0) ? IO_MODE_AF_PP : IO_MODE_AF_OD;
+        break;
+    case 0x3:
+        mode = IO_MODE_ANALOG;
+        break;
+    default:
+        mode = IO_MODE_INPUT;
+        break; // Fallback
+    }
 
-	  io_mode_e mode;
-	  switch(moder)
-	  {
-	  	  	 case 0x0: mode = IO_MODE_INPUT; break;
-	         case 0x1: mode = (otype == 0) ? IO_MODE_OUTPUT_PP : IO_MODE_OUTPUT_OD; break;
-	         case 0x2: mode = (otype == 0) ? IO_MODE_AF_PP : IO_MODE_AF_OD; break;
-	         case 0x3: mode = IO_MODE_ANALOG; break;
-	         default:  mode = IO_MODE_INPUT; break;  // Fallback
-	  }
+    // extract configuration from the pin
+    current_config->Mode = mode;
+    current_config->resistor = ((port->PUPDR & (0x3 << (pin_idx * 2u))) >> (pin_idx * 2u));
+    current_config->speed = ((port->OSPEEDR & (0x3 << (pin_idx * 2u))) >> (pin_idx * 2u));
 
-	  	  	  // extract configuration from the pin
-	 	  current_config->Mode =   mode ;
-	 	  current_config->resistor =  ((port->PUPDR & (0x3 << (pin_idx * 2u )) ) >> (pin_idx * 2u )) ;
-	 	  current_config->speed =    ((port->OSPEEDR & (0x3 << (pin_idx * 2u )) )>> (pin_idx * 2u )) ;
-
-	 	  	  // Alternate function is valid only for AF mode
-	 	  	    if (moder == 0x2) {
-	 	  	        if (pin_idx < 8)
-	 	  	            current_config->Alternate = ((port->AFR[0] & (0xfu << (pin_idx * 4u )) )>> (pin_idx * 4u )) ;
-	 	  	        else
-	 	  	            current_config->Alternate = ((port->AFR[1] & (0xfu << ((pin_idx-8u) * 4u )) ) >> ((pin_idx-8u) * 4u )) ;
-	 	  	    } else {
-	 	  	        current_config->Alternate = IO_SELECT_GPIO;  // Not using AF
-	 	  	    }
+    // Alternate function is valid only for AF mode
+    if (moder == 0x2) {
+        if (pin_idx < 8)
+            current_config->Alternate =
+                ((port->AFR[0] & (0xfu << (pin_idx * 4u))) >> (pin_idx * 4u));
+        else
+            current_config->Alternate =
+                ((port->AFR[1] & (0xfu << ((pin_idx - 8u) * 4u))) >> ((pin_idx - 8u) * 4u));
+    } else {
+        current_config->Alternate = IO_SELECT_GPIO; // Not using AF
+    }
 }
 
-bool io_config_compare(const struct io_config *cfg1 , const struct io_config *cfg2 )
+bool io_config_compare(const struct io_config *cfg1, const struct io_config *cfg2)
 {
 
-return (cfg1->Alternate == cfg2->Alternate) && (cfg1->Mode == cfg2->Mode) && (cfg1->resistor == cfg2->resistor)
-		 && (cfg1->speed == cfg2->speed );
+    return (cfg1->Alternate == cfg2->Alternate) && (cfg1->Mode == cfg2->Mode)
+        && (cfg1->resistor == cfg2->resistor) && (cfg1->speed == cfg2->speed);
+}
+
+void io_config_interrupt(io_e io ,const struct io_config *cfg , io_priority_e prio , io_callback callbacks )
+{
+
+	io_configure(io,cfg) ; // configure pin
+
+    volatile uint8_t enc = io_pin_map[io];
+    volatile uint8_t pin_idx = ((enc) & (0xf)); // pin index from 0 - 15
+
+    if(cfg->Mode == IO_MODE_IT_RISING || cfg->Mode == IO_MODE_IT_FALLING || cfg->Mode == IO_MODE_IT_RISING_FALLING )
+    {
+    	  IRQn_Type irqn = EXTI0_IRQn ;
+    	   if(pin_idx <=4 && pin_idx  >= 0  )
+    	   {
+    		   irqn = (IRQn_Type)(EXTI0_IRQn + pin_idx);
+    	   }
+    	   else if(pin_idx <= 9 && pin_idx  > 4)
+    	   {
+    		   irqn = EXTI9_5_IRQn ;
+    	   }
+    	   else if(pin_idx <= 15 && pin_idx  > 9 )
+    	   {
+    		   irqn = EXTI15_10_IRQn;
+    	   }
+           HAL_NVIC_SetPriority((IRQn_Type )irqn, prio, 0);
+           HAL_NVIC_EnableIRQ((IRQn_Type )irqn);
+
+           io_callbacks[pin_idx] = callbacks ;
+    }
+
 
 }
+void io_clear_interrupt(io_e io )
+{
+
+    volatile uint8_t enc = io_pin_map[io];
+    volatile uint8_t pin_idx = ((enc) & (0xf));
+
+    IRQn_Type irqn = EXTI0_IRQn ;
+      	   if(pin_idx <=4 && pin_idx  >= 0  )
+      	   {
+      		   irqn = (IRQn_Type)(EXTI0_IRQn + pin_idx);
+      	   }
+      	   else if(pin_idx <= 9 && pin_idx  > 4)
+      	   {
+      		   irqn = EXTI9_5_IRQn ;
+      	   }
+      	   else if(pin_idx <= 15 && pin_idx  > 9 )
+      	   {
+      		   irqn = EXTI15_10_IRQn;
+      	   }
+
+	HAL_NVIC_ClearPendingIRQ((IRQn_Type )irqn) ;
+	HAL_NVIC_DisableIRQ((IRQn_Type )irqn) ;
+}
+
+void io0_irqhandler()
+{
+	io_callbacks[0]() ;
+}
+void io1_irqhandler()
+{
+	io_callbacks[1]() ;
+}
+void io2_irqhandler()
+{
+	io_callbacks[2]() ;
+}
+void io3_irqhandler()
+{
+	io_callbacks[3]() ;
+}
+void io4_irqhandler()
+{
+	io_callbacks[4]() ;
+}
+
+void io5_9irqhandler(void)
+{
+    uint32_t pending = EXTI->PR1 & 0x000003E0; // bits 5-9 // read pending register
+    EXTI->PR1 = pending; // clear all pending interrupts
+    for (uint8_t pin = 5; pin <= 9; ++pin) {
+        if (pending & (1U << pin)) {
+            if (io_callbacks[pin]) io_callbacks[pin]();
+        }
+    }
+}
+void io10_15irqhandler()
+{
+	  uint32_t pending = EXTI->PR1 & 0x0000FC00; // bits 10-15
+	   EXTI->PR1 = pending;  // clear all flags at once
+
+	    for (uint8_t pin = 10; pin <= 15; ++pin)
+	    {
+	        if (pending & (1U << pin)) {
+	            if (io_callbacks[pin]) {
+	                io_callbacks[pin]();
+	            }
+	        }
+	    }
+}
+
+
+

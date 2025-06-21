@@ -11,5 +11,5 @@
 #define UNUSED_(x) (void)(x)
 #define ARRAYSIZE(x)  ((sizeof(x)) / sizeof(x[0]))
 #define ENCODE_IO(port, pin) ((port << MAXPINBITS) | (pin & 0x0F)) // Encode pin and port in 8-bit variable
-
+#define SUPPRESS_UNUSED __attribute__((unused))
 #endif /* SRC_COMMON_DEFINES_H_ */
