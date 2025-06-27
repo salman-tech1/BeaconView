@@ -12,4 +12,12 @@
 #define ARRAYSIZE(x)  ((sizeof(x)) / sizeof(x[0]))
 #define ENCODE_IO(port, pin) ((port << MAXPINBITS) | (pin & 0x0F)) // Encode pin and port in 8-bit variable
 #define SUPPRESS_UNUSED __attribute__((unused))
+
+#define __delay(x)  do {  \
+volatile unsigned int n   = x ; \
+		 while (n-- > 0) { __NOP(); }   \
+}while( 0 )
+
+
+
 #endif /* SRC_COMMON_DEFINES_H_ */

@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file      startup_stm32h743xx.s
+  * @file      sytartup_stm32h743xx.s
   * @author    MCD Application Team
   * @brief     STM32H743xx Devices vector table for GCC based toolchain.
   *            This module performs:
@@ -94,7 +94,7 @@ LoopFillZerobss:
   bcc FillZerobss
 
 /* Call static constructors */
-    bl __libc_init_array
+   // bl __libc_init_array
 /* Call the application's entry point.*/
   bl  main
   bx  lr
@@ -180,9 +180,9 @@ g_pfnVectors:
   .word     I2C2_ER_IRQHandler                /* I2C2 Error                   */
   .word     SPI1_IRQHandler                   /* SPI1                         */
   .word     SPI2_IRQHandler                   /* SPI2                         */
-  .word     USART1_IRQHandler                 /* USART1                       */
-  .word     USART2_IRQHandler                 /* USART2                       */
-  .word     USART3_IRQHandler                 /* USART3                       */
+  .word     trace_isr                 /* USART1                       */
+  .word     max485_isr                 /* USART2                       */
+  .word     esp01_isr                 /* USART3                       */
   .word     io10_15irqhandler              /* External Line[15:10]s        */
   .word     RTC_Alarm_IRQHandler              /* RTC Alarm (A and B) through EXTI Line */
   .word     0                                 /* Reserved                     */
@@ -441,14 +441,14 @@ g_pfnVectors:
    .weak      SPI2_IRQHandler
    .thumb_set SPI2_IRQHandler,Default_Handler
 
-   .weak      USART1_IRQHandler
-   .thumb_set USART1_IRQHandler,Default_Handler
+   .weak      trace_isr
+   .thumb_set trace_isr,Default_Handler
 
-   .weak      USART2_IRQHandler
-   .thumb_set USART2_IRQHandler,Default_Handler
+   .weak      max485_isr
+   .thumb_set max485_isr,Default_Handler
 
-   .weak      USART3_IRQHandler
-   .thumb_set USART3_IRQHandler,Default_Handler
+   .weak      esp01_isr
+   .thumb_set esp01_isr,Default_Handler
 
    .weak      io10_15irqhandler
    .thumb_set io10_15irqhandler,Default_Handler

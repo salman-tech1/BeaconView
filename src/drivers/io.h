@@ -19,7 +19,6 @@
 #define MAXPINBITS 4 // 2^4 = 16 //15 pins
 #define IO_UNUSED 0
 
-
 // TODO : Improve multiple HW targets handling
 #define STM32H7BOARD
 
@@ -271,7 +270,7 @@ typedef enum {
     IO_13,
     IO_14,
     IO_15,
-	IO_MAX,
+    IO_MAX,
 } io_pin_e;
 
 // TODO : IO_PORTS
@@ -289,14 +288,14 @@ typedef enum {
 } io_port_e;
 
 typedef enum {
-    IO_SELECT_GPIO,
-    IO_SELECT_ALT1,
+    IO_SELECT_GPIO = 0x0,
+    IO_SELECT_ALT1 = 0x1,
     IO_SELECT_ALT2,
     IO_SELECT_ALT3,
     IO_SELECT_ALT4,
     IO_SELECT_ALT5,
     IO_SELECT_ALT6,
-    IO_SELECT_ALT7,
+    IO_SELECT_ALT7 = 0x07,
     IO_SELECT_ALT8,
     IO_SELECT_ALT9,
     IO_SELECT_ALT10,
@@ -356,34 +355,27 @@ typedef enum {
     IO_TRIGGER_FALLING
 } io_trigger_e;
 
+typedef enum {
+    PRIO_0,
+    PRIO_1,
+    PRIO_2,
+    PRIO_3,
+    PRIO_4,
+    PRIO_5,
+    PRIO_6,
+    PRIO_7,
+    PRIO_8,
+    PRIO_9,
+    PRIO_10,
+    PRIO_11,
+    PRIO_12,
+    PRIO_13,
+    PRIO_14,
+    PRIO_15,
 
+} io_priority_e;
 
-
-typedef enum
-{
-	PRIO_0  ,
-	PRIO_1	,
-	PRIO_2	,
-	PRIO_3	,
-	PRIO_4	,
-	PRIO_5	,
-	PRIO_6	,
-	PRIO_7	,
-	PRIO_8	,
-	PRIO_9 	,
-	PRIO_10 	,
-	PRIO_11 	,
-	PRIO_12 	,
-	PRIO_13 	,
-	PRIO_14 	,
-	PRIO_15 	,
-
-
-}io_priority_e;
-
-typedef void (*io_callback)(void) ;
-
-
+typedef void (*io_callback)(void);
 
 // TODO : struct
 struct io_config
@@ -399,19 +391,20 @@ struct io_config
 void io_configure(io_e io, const struct io_config *config);
 void io_set_out(io_e io, io_out_e out);
 io_in_e io_get_input(io_e io);
-void io_init(void) ;
-void io_get_current_config(io_e io ,  struct io_config *current_config) ;
-bool io_config_compare(const struct io_config *cfg1 , const struct io_config *cfg2 ) ;
-void io_config_interrupt(io_e io , const struct io_config *cfg , io_priority_e prio, io_callback callbacks) ;
-void io_clear_interrupt(io_e io ) ;
+void io_init(void);
+void io_get_current_config(io_e io, struct io_config *current_config);
+bool io_config_compare(const struct io_config *cfg1, const struct io_config *cfg2);
+void io_config_interrupt(io_e io, const struct io_config *cfg, io_priority_e prio,
+                         io_callback callbacks);
+void io_clear_interrupt(io_e io);
 // void io_register_isr()
 
-void io0_irqhandler() ;
-void io1_irqhandler() ;
-void io2_irqhandler() ;
-void io3_irqhandler() ;
-void io4_irqhandler() ;
-void io5_9irqhandler() ;
-void io10_15irqhandler() ;
+void io0_irqhandler();
+void io1_irqhandler();
+void io2_irqhandler();
+void io3_irqhandler();
+void io4_irqhandler();
+void io5_9irqhandler();
+void io10_15irqhandler();
 
 #endif /* SRC_DRIVERS_IO_H_ */

@@ -20,7 +20,6 @@ static const struct io_config led_config = { .Mode = IO_MODE_OUTPUT_PP,
                                              .speed = IO_SPEED_LOW,
                                              .Alternate = IO_SELECT_GPIO };
 
-
 static const uint8_t led_pin_map[MAX_LEDS] = { [LED_] = ENCODE_IO(PORTC, IO_13) };
 
 static bool initialized = false;
@@ -41,7 +40,7 @@ void led_set(led_e led, led_state_e state)
 {
     volatile uint8_t enc = led_pin_map[led];
     volatile uint8_t _indx = (((enc) >> (4u)) & (0xf));
-    GPIO_TypeDef *port = ports[_indx];
+    GPIO_TypeDef *port = (GPIO_TypeDef *)ports[_indx];
 
     enc = led_pin_map[led];
 
