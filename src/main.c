@@ -15,18 +15,30 @@
  ******************************************************************************
  *
  */
+
 #include "stm32h7xx_hal.h"
 #include "drivers/mcu_init.h"
-#include "drivers/io.h"
-
-
-
+#include "drivers/uart.h"
+#include "common/assert_handler.h"
+#include "common/defines.h"
+#include "common/trace.h"
 
 int main(void)
 {
 
     mcu_init();
-    io_init() ;
 
-    while (1) { }
+    trace_init();
+
+    TRACE("Salman %d \r\n", 2025);
+    while (1) {
+
+        __delay(10000);
+    }
+}
+
+void systick_func(void)
+{
+
+    HAL_IncTick();
 }

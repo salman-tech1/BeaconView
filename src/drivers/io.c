@@ -8,13 +8,15 @@
 #include "stm32h7xx_hal.h"
 #include "drivers/io.h"
 #include "common/defines.h"
+#include <assert.h>
 
 // This define is a helper macro to encode port and pin bits into a variable
-#define ENCODE_IO(port, pin) ((port << MAXPINBITS) | (pin & 0x0F))
 
 // it's a helper headers provide variables/defines for accessing registers
 static volatile GPIO_TypeDef *const ports[MAXPORTS] = { GPIOA, GPIOB, GPIOC, GPIOD, GPIOE,
                                                         GPIOF, GPIOG, GPIOH, GPIOI };
+
+static io_callback io_callbacks[IO_MAX];
 
 // TODO : Encode tempelate
 static const uint8_t io_pin_map[MAX_PIN] = {
@@ -130,6 +132,400 @@ static const uint8_t io_pin_map[MAX_PIN] = {
     [AUX_PIN_3] = ENCODE_IO(PORTE, IO_6),
 };
 
+//
+static const struct io_config initial_configs[MAX_PIN] = {
+
+    // LTDC
+    [LTDC_VSYNC] = { .Mode = IO_MODE_AF_PP,
+                     .speed = IO_SPEED_LOW,
+                     .resistor = IO_RESISTOR_DISABLED,
+                     .Alternate = IO_SELECT_ALT14 },
+    [LTDC_HSYNC] = { .Mode = IO_MODE_AF_PP,
+                     .speed = IO_SPEED_LOW,
+                     .resistor = IO_RESISTOR_DISABLED,
+                     .Alternate = IO_SELECT_ALT14 },
+    [LTDC_DE] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_G4] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_R3] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_R4] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_R5] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_R6] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_R7] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_CLK] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT14 },
+    [LTDC_B3] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT13 },
+    [LTDC_G2] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_G5] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_G6] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_G7] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_G3] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT9 },
+    [LTDC_B4] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_V_HIGH,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT9 },
+    [LTDC_B5] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_B6] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LTDC_B7] = { .Mode = IO_MODE_AF_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_DISABLED,
+                  .Alternate = IO_SELECT_ALT14 },
+    [LCD_RST] = { .Mode = IO_MODE_OUTPUT_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_PULLUP,
+                  .Alternate = IO_SELECT_GPIO },
+    [LCD_BL] = { .Mode = IO_MODE_OUTPUT_PP,
+                 .speed = IO_SPEED_LOW,
+                 .resistor = IO_RESISTOR_PULLUP,
+                 .Alternate = IO_SELECT_GPIO },
+    [OUT_PE3] = { .Mode = IO_MODE_OUTPUT_PP,
+                  .speed = IO_SPEED_LOW,
+                  .resistor = IO_RESISTOR_PULLUP,
+                  .Alternate = IO_SELECT_GPIO },
+    // TOUCH_SENS
+    [TOUCH_SDA] = { .Mode = IO_MODE_AF_OD,
+                    .speed = IO_SPEED_LOW,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT4 },
+    [TOUCH_SCL] = { .Mode = IO_MODE_AF_OD,
+                    .speed = IO_SPEED_LOW,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT4 },
+    [GT_RESET] = { .Mode = IO_MODE_OUTPUT_PP,
+                   .speed = IO_SPEED_LOW,
+                   .resistor = IO_RESISTOR_PULLUP,
+                   .Alternate = IO_SELECT_GPIO },
+    // TEMP_SENS
+    [TEMP_SDA] = { .Mode = IO_MODE_AF_OD,
+                   .speed = IO_SPEED_LOW,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT4 },
+    [TEMP_SCL] = { .Mode = IO_MODE_AF_OD,
+                   .speed = IO_SPEED_LOW,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT4 },
+    // SDCARD
+    [SD_D0] = { .Mode = IO_MODE_AF_PP,
+                .speed = IO_SPEED_V_HIGH,
+                .resistor = IO_RESISTOR_DISABLED,
+                .Alternate = IO_SELECT_ALT9 },
+    [SD_CLK] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_V_HIGH,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT11 },
+    [SD_CMD] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_V_HIGH,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT11 },
+    // RCC_OSC
+    [RCC_OSC32_IN] = { .Mode = IO_UNUSED,
+                       .speed = IO_UNUSED,
+                       .resistor = IO_UNUSED,
+                       .Alternate = IO_UNUSED },
+    [RCC_OSC32_OUT] = { .Mode = IO_UNUSED,
+                        .speed = IO_UNUSED,
+                        .resistor = IO_UNUSED,
+                        .Alternate = IO_UNUSED },
+    [RCC_OSC_IN] = { .Mode = IO_UNUSED,
+                     .speed = IO_UNUSED,
+                     .resistor = IO_UNUSED,
+                     .Alternate = IO_UNUSED },
+    [RCC_OSC_OUT] = { .Mode = IO_UNUSED,
+                      .speed = IO_UNUSED,
+                      .resistor = IO_UNUSED,
+                      .Alternate = IO_UNUSED },
+    // QSPI_FLASH
+    [QSPI_CLK] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT9 },
+    [QSPI_NCS] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_LOW,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT9 },
+    [QSPI_IO3] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT9 },
+    [QSPI_IO2] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT9 },
+    [QSPI_IO0] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT10 },
+    [QSPIO_IO1] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT10 },
+    // CAN INVERTER
+    [CAN_RX] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_V_HIGH,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT9 },
+    [CAN_TX] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_V_HIGH,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT9 },
+    // SDRAM ,
+    [SDRAM_D0] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D1] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D2] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D3] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D4] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D5] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D6] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D7] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D8] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D9] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D10] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D11] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D12] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D13] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D14] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_D15] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+
+    [SDRAM_A0] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A1] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A2] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A3] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A4] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A5] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A6] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A7] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A8] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A9] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_V_HIGH,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A10] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A11] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_A12] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    .resistor = IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+
+    [SDRAM_NBL0] = { .Mode = IO_MODE_AF_PP,
+                     .speed = IO_SPEED_V_HIGH,
+                     .resistor = IO_RESISTOR_DISABLED,
+                     .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_NBL1] = { .Mode = IO_MODE_AF_PP,
+                     .speed = IO_SPEED_V_HIGH,
+                     .resistor = IO_RESISTOR_DISABLED,
+                     .Alternate = IO_SELECT_ALT12 },
+
+    [SDRAM_BA0] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_BA1] = { .Mode = IO_MODE_AF_PP,
+                    .speed = IO_SPEED_V_HIGH,
+                    IO_RESISTOR_DISABLED,
+                    .Alternate = IO_SELECT_ALT12 },
+
+    [SDRAM_SDCLK] = { .Mode = IO_MODE_AF_PP,
+                      .speed = IO_SPEED_V_HIGH,
+                      .resistor = IO_RESISTOR_DISABLED,
+                      .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_SDNCAS] = { .Mode = IO_MODE_AF_PP,
+                       .speed = IO_SPEED_V_HIGH,
+                       .resistor = IO_RESISTOR_DISABLED,
+                       .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_SDNRAS] = { .Mode = IO_MODE_AF_PP,
+                       .speed = IO_SPEED_V_HIGH,
+                       .resistor = IO_RESISTOR_DISABLED,
+                       .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_SDNCKE0] = { .Mode = IO_MODE_AF_PP,
+                        .speed = IO_SPEED_V_HIGH,
+                        .resistor = IO_RESISTOR_DISABLED,
+                        .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_SDNE0] = { .Mode = IO_MODE_AF_PP,
+                      .speed = IO_SPEED_V_HIGH,
+                      .resistor = IO_RESISTOR_DISABLED,
+                      .Alternate = IO_SELECT_ALT12 },
+    [SDRAM_SDNWE] = { .Mode = IO_MODE_AF_PP,
+                      .speed = IO_SPEED_V_HIGH,
+                      .resistor = IO_RESISTOR_DISABLED,
+                      .Alternate = IO_SELECT_ALT12 },
+
+    // UART PRINTF
+    [TRACE_TX] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_LOW,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT7 },
+    [TRACE_RX] = { .Mode = IO_MODE_AF_PP,
+                   .speed = IO_SPEED_LOW,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_ALT7 },
+    // ESP01
+    [ESP_TX] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_LOW,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT7 },
+    [ESP_RX] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_LOW,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT7 },
+    // MAX485
+    [MAX_TX] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_LOW,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT7 },
+    [MAX_RX] = { .Mode = IO_MODE_AF_PP,
+                 .speed = IO_SPEED_LOW,
+                 .resistor = IO_RESISTOR_DISABLED,
+                 .Alternate = IO_SELECT_ALT7 },
+    // LED TEST
+    [LED_TEST] = { .Mode = IO_MODE_OUTPUT_PP,
+                   .speed = IO_SPEED_LOW,
+                   .resistor = IO_RESISTOR_DISABLED,
+                   .Alternate = IO_SELECT_GPIO },
+    // AUX PINS
+    [AUX_PIN_1] = { .Mode = IO_UNUSED,
+                    .speed = IO_UNUSED,
+                    .resistor = IO_UNUSED,
+                    .Alternate = IO_UNUSED },
+    [AUX_PIN_2] = { .Mode = IO_UNUSED,
+                    .speed = IO_UNUSED,
+                    .resistor = IO_UNUSED,
+                    .Alternate = IO_UNUSED },
+    [AUX_PIN_3] = { .Mode = IO_UNUSED,
+                    .speed = IO_UNUSED,
+                    .resistor = IO_UNUSED,
+                    .Alternate = IO_UNUSED },
+
+};
+
+static_assert((sizeof(io_e) == 1), "Unexpected size of enum");
+
 // return pointer to PORTS : GPIOA
 static inline GPIO_TypeDef *io_port(io_e io)
 {
@@ -137,7 +533,7 @@ static inline GPIO_TypeDef *io_port(io_e io)
     volatile uint8_t enc = io_pin_map[io];
     volatile uint8_t prt_indx = (((enc) >> (4u)) & (0xf));
 
-    return ports[prt_indx];
+    return (GPIO_TypeDef *)ports[prt_indx];
 }
 
 // return pointer to PORTS : GPIOA
@@ -202,6 +598,7 @@ void io_configure(io_e io, const struct io_config *config)
     pincnfg.Pull = res_lr;
     pincnfg.Speed = speed_l;
     pincnfg.Alternate = Alt_l;
+
     HAL_GPIO_Init(port, &pincnfg);
 }
 
@@ -220,136 +617,165 @@ void io_set_out(io_e io, io_out_e out)
     HAL_GPIO_WritePin(port, pin, out);
 }
 
-//
-static const struct io_config initial_configs[MAX_PIN] = {
-
-    // LTDC
-    [LTDC_VSYNC] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_HSYNC] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_DE] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_G4] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_R3] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_R4] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_R5] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_R6] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_R7] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_CLK] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_B3] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT13 },
-    [LTDC_G2] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_G5] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_G6] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_G7] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_G3] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [LTDC_B4] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [LTDC_B5] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_B6] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LTDC_B7] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT14 },
-    [LCD_RST] = { IO_MODE_OUTPUT_PP, IO_SPEED_LOW, IO_RESISTOR_PULLUP, IO_SELECT_GPIO },
-    [LCD_BL] = { IO_MODE_OUTPUT_PP, IO_SPEED_LOW, IO_RESISTOR_PULLUP, IO_SELECT_GPIO },
-    [OUT_PE3] = { IO_MODE_OUTPUT_PP, IO_SPEED_LOW, IO_RESISTOR_PULLUP, IO_SELECT_GPIO },
-    // TOUCH_SENS
-    [TOUCH_SDA] = { IO_MODE_AF_OD, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT4 },
-    [TOUCH_SCL] = { IO_MODE_AF_OD, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT4 },
-    [GT_RESET] = { IO_MODE_OUTPUT_PP, IO_SPEED_LOW, IO_RESISTOR_PULLUP, IO_SELECT_GPIO },
-    // TEMP_SENS
-    [TEMP_SDA] = { IO_MODE_AF_OD, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT4 },
-    [TEMP_SCL] = { IO_MODE_AF_OD, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT4 },
-    // SDCARD
-    [SD_D0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [SD_CLK] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT11 },
-    [SD_CMD] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT11 },
-    // RCC_OSC
-    [RCC_OSC32_IN] = { IO_UNUSED, IO_UNUSED, IO_UNUSED, IO_UNUSED },
-    [RCC_OSC32_OUT] = { IO_UNUSED, IO_UNUSED, IO_UNUSED, IO_UNUSED },
-    [RCC_OSC_IN] = { IO_UNUSED, IO_UNUSED, IO_UNUSED, IO_UNUSED },
-    [RCC_OSC_OUT] = { IO_UNUSED, IO_UNUSED, IO_UNUSED, IO_UNUSED },
-    // QSPI_FLASH
-    [QSPI_CLK] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [QSPI_NCS] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [QSPI_IO3] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [QSPI_IO2] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [QSPI_IO0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT10 },
-    [QSPIO_IO1] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT10 },
-    // CAN INVERTER
-    [CAN_RX] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    [CAN_TX] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT9 },
-    // SDRAM ,
-    [SDRAM_D0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D1] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D2] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D3] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D4] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D5] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D6] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D7] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D8] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D9] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D10] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D11] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D12] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D13] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D14] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_D15] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-
-    [SDRAM_A0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A1] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A2] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A3] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A4] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A5] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A6] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A7] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A8] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A9] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A10] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A11] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_A12] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-
-    [SDRAM_NBL0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_NBL1] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-
-    [SDRAM_BA0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_BA1] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-
-    [SDRAM_SDCLK] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_SDNCAS] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_SDNRAS] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_SDNCKE0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_SDNE0] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-    [SDRAM_SDNWE] = { IO_MODE_AF_PP, IO_SPEED_V_HIGH, IO_RESISTOR_DISABLED, IO_SELECT_ALT12 },
-
-    // UART PRINTF
-    [TRACE_TX] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT7 },
-    [TRACE_RX] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT7 },
-    // ESP01
-    [ESP_TX] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT7 },
-    [ESP_RX] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT7 },
-    // MAX485
-    [MAX_TX] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT7 },
-    [MAX_RX] = { IO_MODE_AF_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_ALT7 },
-    // LED TEST
-    [LED_TEST] = { IO_MODE_OUTPUT_PP, IO_SPEED_LOW, IO_RESISTOR_DISABLED, IO_SELECT_GPIO },
-    // AUX PINS
-    [AUX_PIN_1] = { IO_UNUSED, IO_UNUSED, IO_UNUSED, IO_UNUSED },
-    [AUX_PIN_2] = { IO_UNUSED, IO_UNUSED, IO_UNUSED, IO_UNUSED },
-    [AUX_PIN_3] = { IO_UNUSED, IO_UNUSED, IO_UNUSED, IO_UNUSED },
-
-};
-
 void io_init(void)
 {
-    __HAL_RCC_GPIOC_CLK_ENABLE(); // enable the pin clock
-    __HAL_RCC_GPIOA_CLK_ENABLE();
-    __HAL_RCC_GPIOB_CLK_ENABLE();
-    __HAL_RCC_GPIOD_CLK_ENABLE();
-    __HAL_RCC_GPIOE_CLK_ENABLE();
-    __HAL_RCC_GPIOF_CLK_ENABLE();
-    __HAL_RCC_GPIOG_CLK_ENABLE();
-    __HAL_RCC_GPIOH_CLK_ENABLE();
+
     // TODO : intializing all pins group each Peripheral in a seperated BLocks
-    for (io_e io = LTDC_VSYNC; io < ARRAYSIZE(io_pin_map); ++io) {
+    for (io_e io = LTDC_VSYNC; io < MAX_PIN; ++io) {
         if (io == RCC_OSC32_IN || io == RCC_OSC32_OUT || io == RCC_OSC_IN || io == RCC_OSC_OUT)
             continue;
-        io_configure(io, &initial_configs[io]);
+        for (int i = 0; i < 100; ++i)
+            ; // delay
+        io_configure(io, &(initial_configs[io]));
+    }
+}
+
+// Get current configuration
+void io_get_current_config(io_e io, struct io_config *current_config)
+{
+    GPIO_TypeDef *port = io_port(io);
+
+    volatile uint8_t enc = io_pin_map[io];
+    volatile uint8_t pin_idx = ((enc) & (0xf));
+
+    // extract the config from PORT registers
+    volatile uint32_t moder = ((port->MODER & (0x3 << (pin_idx * 2u))) >> (pin_idx * 2u));
+    volatile uint32_t otype = ((port->OTYPER & (0x1 << pin_idx)) >> pin_idx);
+
+    io_mode_e mode;
+    switch (moder) {
+    case 0x0:
+        mode = IO_MODE_INPUT;
+        break;
+    case 0x1:
+        mode = (otype == 0) ? IO_MODE_OUTPUT_PP : IO_MODE_OUTPUT_OD;
+        break;
+    case 0x2:
+        mode = (otype == 0) ? IO_MODE_AF_PP : IO_MODE_AF_OD;
+        break;
+    case 0x3:
+        mode = IO_MODE_ANALOG;
+        break;
+    default:
+        mode = IO_MODE_INPUT;
+        break; // Fallback
+    }
+
+    // extract configuration from the pin
+    current_config->Mode = mode;
+    current_config->resistor = ((port->PUPDR & (0x3 << (pin_idx * 2u))) >> (pin_idx * 2u));
+    current_config->speed = ((port->OSPEEDR & (0x3 << (pin_idx * 2u))) >> (pin_idx * 2u));
+
+    // Alternate function is valid only for AF mode
+    if (moder == 0x2) {
+        if (pin_idx < 8)
+            current_config->Alternate =
+                ((port->AFR[0] & (0xfu << (pin_idx * 4u))) >> (pin_idx * 4u));
+        else
+            current_config->Alternate =
+                ((port->AFR[1] & (0xfu << ((pin_idx - 8u) * 4u))) >> ((pin_idx - 8u) * 4u));
+    } else {
+        current_config->Alternate = IO_SELECT_GPIO; // Not using AF
+    }
+}
+
+bool io_config_compare(const struct io_config *cfg1, const struct io_config *cfg2)
+{
+
+    return (cfg1->Alternate == cfg2->Alternate) && (cfg1->Mode == cfg2->Mode)
+        && (cfg1->resistor == cfg2->resistor) && (cfg1->speed == cfg2->speed);
+}
+
+// interrupt configuration
+void io_config_interrupt(io_e io, const struct io_config *cfg, io_priority_e prio,
+                         io_callback callbacks)
+{
+
+    io_configure(io, cfg); // configure pin
+
+    volatile uint8_t enc = io_pin_map[io];
+    volatile uint8_t pin_idx = ((enc) & (0xf)); // pin index from 0 - 15
+
+    if (cfg->Mode == IO_MODE_IT_RISING || cfg->Mode == IO_MODE_IT_FALLING
+        || cfg->Mode == IO_MODE_IT_RISING_FALLING) {
+
+        IRQn_Type irqn = EXTI0_IRQn;
+        if (pin_idx <= 4 && pin_idx >= 0) {
+            irqn = (IRQn_Type)(EXTI0_IRQn + pin_idx);
+        } else if (pin_idx <= 9 && pin_idx > 4) {
+            irqn = EXTI9_5_IRQn;
+        } else if (pin_idx <= 15 && pin_idx > 9) {
+            irqn = EXTI15_10_IRQn;
+        }
+        HAL_NVIC_SetPriority((IRQn_Type)irqn, prio, 0);
+        HAL_NVIC_EnableIRQ((IRQn_Type)irqn);
+
+        io_callbacks[pin_idx] = callbacks;
+    }
+}
+// clearing configured interrupt
+void io_clear_interrupt(io_e io)
+{
+
+    volatile uint8_t enc = io_pin_map[io];
+    volatile uint8_t pin_idx = ((enc) & (0xf));
+
+    IRQn_Type irqn = EXTI0_IRQn;
+    if (pin_idx <= 4 && pin_idx >= 0) {
+        irqn = (IRQn_Type)(EXTI0_IRQn + pin_idx);
+    } else if (pin_idx <= 9 && pin_idx > 4) {
+        irqn = EXTI9_5_IRQn;
+    } else if (pin_idx <= 15 && pin_idx > 9) {
+        irqn = EXTI15_10_IRQn;
+    }
+
+    HAL_NVIC_ClearPendingIRQ((IRQn_Type)irqn);
+    HAL_NVIC_DisableIRQ((IRQn_Type)irqn);
+}
+
+void io0_irqhandler()
+{
+    io_callbacks[0]();
+}
+void io1_irqhandler()
+{
+    io_callbacks[1]();
+}
+void io2_irqhandler()
+{
+    io_callbacks[2]();
+}
+void io3_irqhandler()
+{
+    io_callbacks[3]();
+}
+void io4_irqhandler()
+{
+    io_callbacks[4]();
+}
+
+void io5_9irqhandler(void)
+{
+    uint32_t pending = EXTI->PR1 & 0x000003E0; // bits 5-9 // read pending register
+    EXTI->PR1 = pending; // clear all pending interrupts
+    for (uint8_t pin = 5; pin <= 9; ++pin) {
+        if (pending & (1U << pin)) {
+            if (io_callbacks[pin])
+                io_callbacks[pin]();
+        }
+    }
+}
+
+void io10_15irqhandler()
+{
+    uint32_t pending = EXTI->PR1 & 0x0000FC00; // bits 10-15
+    EXTI->PR1 = pending; // clear all flags at once
+
+    for (uint8_t pin = 10; pin <= 15; ++pin) {
+        if (pending & (1U << pin)) {
+            if (io_callbacks[pin]) {
+                io_callbacks[pin]();
+            }
+        }
     }
 }

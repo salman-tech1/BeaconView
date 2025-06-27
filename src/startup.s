@@ -1,6 +1,6 @@
 /**
   ******************************************************************************
-  * @file      startup_stm32h743xx.s
+  * @file      sytartup_stm32h743xx.s
   * @author    MCD Application Team
   * @brief     STM32H743xx Devices vector table for GCC based toolchain.
   *            This module performs:
@@ -94,7 +94,7 @@ LoopFillZerobss:
   bcc FillZerobss
 
 /* Call static constructors */
-    bl __libc_init_array
+   // bl __libc_init_array
 /* Call the application's entry point.*/
   bl  main
   bx  lr
@@ -149,11 +149,11 @@ g_pfnVectors:
   .word     RTC_WKUP_IRQHandler               /* RTC Wakeup through the EXTI line */
   .word     FLASH_IRQHandler                  /* FLASH                        */
   .word     RCC_IRQHandler                    /* RCC                          */
-  .word     EXTI0_IRQHandler                  /* EXTI Line0                   */
-  .word     EXTI1_IRQHandler                  /* EXTI Line1                   */
-  .word     EXTI2_IRQHandler                  /* EXTI Line2                   */
-  .word     EXTI3_IRQHandler                  /* EXTI Line3                   */
-  .word     EXTI4_IRQHandler                  /* EXTI Line4                   */
+  .word     io0_irqhandler                  /* EXTI Line0                   */
+  .word     io1_irqhandler                  /* EXTI Line1                   */
+  .word     io2_irqhandler                  /* EXTI Line2                   */
+  .word     io3_irqhandler                  /* EXTI Line3                   */
+  .word     io4_irqhandler                  /* EXTI Line4                   */
   .word     DMA1_Stream0_IRQHandler           /* DMA1 Stream 0                */
   .word     DMA1_Stream1_IRQHandler           /* DMA1 Stream 1                */
   .word     DMA1_Stream2_IRQHandler           /* DMA1 Stream 2                */
@@ -166,7 +166,7 @@ g_pfnVectors:
   .word     FDCAN2_IT0_IRQHandler             /* FDCAN2 interrupt line 0      */
   .word     FDCAN1_IT1_IRQHandler             /* FDCAN1 interrupt line 1      */
   .word     FDCAN2_IT1_IRQHandler             /* FDCAN2 interrupt line 1      */
-  .word     EXTI9_5_IRQHandler                /* External Line[9:5]s          */
+  .word     io5_9irqhandler                /* External Line[9:5]s          */
   .word     TIM1_BRK_IRQHandler               /* TIM1 Break interrupt         */
   .word     TIM1_UP_IRQHandler                /* TIM1 Update interrupt        */
   .word     TIM1_TRG_COM_IRQHandler           /* TIM1 Trigger and Commutation interrupt */
@@ -180,10 +180,10 @@ g_pfnVectors:
   .word     I2C2_ER_IRQHandler                /* I2C2 Error                   */
   .word     SPI1_IRQHandler                   /* SPI1                         */
   .word     SPI2_IRQHandler                   /* SPI2                         */
-  .word     USART1_IRQHandler                 /* USART1                       */
-  .word     USART2_IRQHandler                 /* USART2                       */
-  .word     USART3_IRQHandler                 /* USART3                       */
-  .word     EXTI15_10_IRQHandler              /* External Line[15:10]s        */
+  .word     trace_isr                 /* USART1                       */
+  .word     max485_isr                 /* USART2                       */
+  .word     esp01_isr                 /* USART3                       */
+  .word     io10_15irqhandler              /* External Line[15:10]s        */
   .word     RTC_Alarm_IRQHandler              /* RTC Alarm (A and B) through EXTI Line */
   .word     0                                 /* Reserved                     */
   .word     TIM8_BRK_TIM12_IRQHandler         /* TIM8 Break and TIM12         */
@@ -348,20 +348,20 @@ g_pfnVectors:
    .weak      RCC_IRQHandler
    .thumb_set RCC_IRQHandler,Default_Handler
 
-   .weak      EXTI0_IRQHandler
-   .thumb_set EXTI0_IRQHandler,Default_Handler
+   .weak      io0_irqhandler
+   .thumb_set io0_irqhandler,Default_Handler
 
-   .weak      EXTI1_IRQHandler
-   .thumb_set EXTI1_IRQHandler,Default_Handler
+   .weak      io1_irqhandler
+   .thumb_set io1_irqhandler,Default_Handler
 
-   .weak      EXTI2_IRQHandler
-   .thumb_set EXTI2_IRQHandler,Default_Handler
+   .weak      io2_irqhandler
+   .thumb_set io2_irqhandler,Default_Handler
 
-   .weak      EXTI3_IRQHandler
-   .thumb_set EXTI3_IRQHandler,Default_Handler
+   .weak      io3_irqhandler
+   .thumb_set io3_irqhandler,Default_Handler
 
-   .weak      EXTI4_IRQHandler
-   .thumb_set EXTI4_IRQHandler,Default_Handler
+   .weak      io4_irqhandler
+   .thumb_set io4_irqhandler,Default_Handler
 
    .weak      DMA1_Stream0_IRQHandler
    .thumb_set DMA1_Stream0_IRQHandler,Default_Handler
@@ -399,8 +399,8 @@ g_pfnVectors:
    .weak      FDCAN2_IT1_IRQHandler
    .thumb_set FDCAN2_IT1_IRQHandler,Default_Handler
 
-   .weak      EXTI9_5_IRQHandler
-   .thumb_set EXTI9_5_IRQHandler,Default_Handler
+   .weak      io5_9irqhandler
+   .thumb_set io5_9irqhandler,Default_Handler
 
    .weak      TIM1_BRK_IRQHandler
    .thumb_set TIM1_BRK_IRQHandler,Default_Handler
@@ -441,17 +441,17 @@ g_pfnVectors:
    .weak      SPI2_IRQHandler
    .thumb_set SPI2_IRQHandler,Default_Handler
 
-   .weak      USART1_IRQHandler
-   .thumb_set USART1_IRQHandler,Default_Handler
+   .weak      trace_isr
+   .thumb_set trace_isr,Default_Handler
 
-   .weak      USART2_IRQHandler
-   .thumb_set USART2_IRQHandler,Default_Handler
+   .weak      max485_isr
+   .thumb_set max485_isr,Default_Handler
 
-   .weak      USART3_IRQHandler
-   .thumb_set USART3_IRQHandler,Default_Handler
+   .weak      esp01_isr
+   .thumb_set esp01_isr,Default_Handler
 
-   .weak      EXTI15_10_IRQHandler
-   .thumb_set EXTI15_10_IRQHandler,Default_Handler
+   .weak      io10_15irqhandler
+   .thumb_set io10_15irqhandler,Default_Handler
 
    .weak      RTC_Alarm_IRQHandler
    .thumb_set RTC_Alarm_IRQHandler,Default_Handler
