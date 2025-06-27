@@ -79,4 +79,7 @@ char uart_getchar(uart_inst_e inst ) ;
 void uart_getchar_interrupt(uart_inst_e inst ) ;
 int uart_irq_isreadable() ;
 void _putchar(char c ) ;
+
+void uart_assert_init() ;
+
 #endif

@@ -28,9 +28,8 @@ int main(void)
 
     mcu_init();
 
-    trace_init();
-
-    TRACE("Salman %d \r\n", 2025);
+   // trace_init();
+    //TRACE("Salman %d \r\n", 2025);
     while (1) {
 
         __delay(10000);

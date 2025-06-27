@@ -327,3 +327,15 @@ int uart_irq_isreadable()
 
     return -1;
 }
+
+
+// For ASSERT functionality
+void uart_assert_init()
+{
+	static const struct uart_config cnfg_l = {
+	    .baud = BAUD_115200, .isr_stat = INT_DISABLED, .int_type = 0, .prio = PRIO_0
+	};
+    uart_configure(TRACE, &cnfg_l);
+}
+
+

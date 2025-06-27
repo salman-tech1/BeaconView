@@ -14,10 +14,10 @@
 do { \
 	if(!(expression)) \
 		{				\
-		assert_handler() ; \
+		assert_handler(__FILE__,__LINE__) ; \
 		} \
 }while(0) ;
 
-void assert_handler(void) ;
+void assert_handler( const char *file , int line ) ;
 
 #endif /* SRC_COMMON_ASSERT_HANDLER_H_ */

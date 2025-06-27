@@ -16,6 +16,8 @@
 void trace_init(void) ;
 // this will wrap the printf call
 void trace(const char *fmt, ...) ;
+
+
 #else
 #define trace_init(void) ;
 #define trace(const char *fmt, ...) ;
