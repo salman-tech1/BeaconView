@@ -36,7 +36,7 @@ void UsageFault_Handler(void);
 void SVC_func(void);
 void DebugMon_Handler(void);
 void PendSV_func(void);
-void SysTick_func(void);
+//void SysTick_func(void);
 
 
 void NMI_Handler(void)
@@ -103,10 +103,10 @@ void PendSV_func(void)
 
 }
 
-void systick_func(void)
-{
-
-  HAL_IncTick();
-
-}
+//void systick_func(void)
+//{
+//
+//  HAL_IncTick();
+//
+//}
 
